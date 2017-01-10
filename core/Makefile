@@ -1371,6 +1371,9 @@ ifneq ($(USE_SET_METADATA),false)
 endif
 	$(hide) echo "multistage_support=1" >> $(zip_root)/META/misc_info.txt
 	$(hide) echo "update_rename_support=1" >> $(zip_root)/META/misc_info.txt
+	$(hide) echo "ota_override_device=$(OTA_SCRIPT_OVERRIDE_DEVICE)" >> $(zip_root)/META/misc_info.txt
+	$(hide) echo "ota_override_prop=$(OTA_SCRIPT_OVERRIDE_PROP)" >> $(zip_root)/META/misc_info.txt
+	$(hide) echo "ota_backuptool=$(OTA_SCRIPT_BACKUPTOOL)" >> $(zip_root)/META/misc_info.txt
 	$(call generate-userimage-prop-dictionary, $(zip_root)/META/misc_info.txt)
 	@# Zip everything up, preserving symlinks
 	$(hide) (cd $(zip_root) && zip -qry ../$(notdir $@) .)
@@ -1413,15 +1416,21 @@ KERNEL_PATH := $(TARGET_KERNEL_SOURCE)/arch/arm/configs/$(TARGET_KERNEL_CONFIG)
 #BOOT_ZIP_OUT_FILE := Slim-Kernel-$(DEVICE).zip
 
 ifneq ($(SLIM_BUILD),)
-    $(INTERNAL_OTA_PACKAGE_TARGET): backuptool := true
+    OTA_SCRIPT_BACKUPTOOL := true
 else
-    $(INTERNAL_OTA_PACKAGE_TARGET): backuptool := false
+    OTA_SCRIPT_BACKUPTOOL := false
 endif
 
 ifeq ($(TARGET_UNIFIED_DEVICE),)
-    $(INTERNAL_OTA_PACKAGE_TARGET): override_prop := false
+    OTA_SCRIPT_OVERRIDE_PROP := false
 else
-    $(INTERNAL_OTA_PACKAGE_TARGET): override_prop := true
+    OTA_SCRIPT_OVERRIDE_PROP := true
+endif
+
+ifeq ($(TARGET_OTA_ASSERT_DEVICE),)
+    OTA_SCRIPT_OVERRIDE_DEVICE := auto
+else
+    OTA_SCRIPT_OVERRIDE_DEVICE := $(TARGET_OTA_ASSERT_DEVICE)
 endif
 
 $(INTERNAL_OTA_PACKAGE_TARGET): $(BUILT_TARGET_FILES_PACKAGE) $(DISTTOOLS)
@@ -1430,8 +1439,6 @@ $(INTERNAL_OTA_PACKAGE_TARGET): $(BUILT_TARGET_FILES_PACKAGE) $(DISTTOOLS)
 	$(OTA_FROM_TARGET_SCRIPT) -v \
 	   -p $(HOST_OUT) \
 	   -k $(KEY_CERT_PAIR) \
-	   --backup=$(backuptool) \
-	   --override_prop=$(override_prop) \
 	   $(BUILT_TARGET_FILES_PACKAGE) $@
 
 .PHONY: otapackage bacon bootzip
