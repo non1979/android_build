@@ -94,6 +94,7 @@ OPTIONS.extra_script = None
 OPTIONS.aslr_mode = True
 OPTIONS.worker_threads = 3
 OPTIONS.backuptool = False
+OPTIONS.override_device = 'auto'
 OPTIONS.override_prop = False
 OPTIONS.two_step = False
 
@@ -369,6 +370,16 @@ def SignOutput(temp_zip_name, output_zip_name):
   common.SignFile(temp_zip_name, output_zip_name, OPTIONS.package_key, pw,
                   whole_file=True)
 
+def AppendAssertions(script, info_dict):
+  if OPTIONS.override_device == "auto":
+    if OPTIONS.override_prop:
+      device = GetBuildProp("ro.build.product", info_dict)
+    else:
+      device = GetBuildProp("ro.product.device", info_dict)
+  else:
+    device = OPTIONS.override_device
+  script.AssertDevice(device)
+
 def MakeRecoveryPatch(input_tmp, output_zip, recovery_img, boot_img):
   """Generate a binary patch that creates the recovery image starting
   with the boot image.  (Most of the space in these images is just the
@@ -451,6 +462,7 @@ def WriteFullOTAPackage(input_zip, output_zip):
       metadata=metadata,
       info_dict=OPTIONS.info_dict)
 
+  AppendAssertions(script, OPTIONS.info_dict)
   device_specific.FullOTA_Assertions()
 
   # Two-step package strategy (in chronological order, which is *not*
@@ -725,6 +737,7 @@ def WriteIncrementalOTAPackage(target_zip, source_zip, output_zip):
     metadata["post-build"] = target_fp
 
     script.Mount("/system")
+    script.AssertSomeFingerprint(source_fp, target_fp)
 
   source_boot = common.GetBootableImage(
       "/tmp/boot.img", "boot.img", OPTIONS.source_tmp, "BOOT",
@@ -747,6 +760,8 @@ def WriteIncrementalOTAPackage(target_zip, source_zip, output_zip):
   #  0.1 for unpacking verbatim files, symlinking, and doing the
   #      device-specific commands.
 
+  AppendAssertions(script, OPTIONS.target_info_dict)
+  device_specific.IncrementalOTA_Assertions()
 
   # Two-step incremental package strategy (in chronological order,
   # which is *not* the order in which the generated script has
